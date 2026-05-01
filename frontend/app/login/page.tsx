@@ -29,7 +29,7 @@ export default function LoginPage() {
     }
     return () => {
       if (typeof window !== "undefined") {
-        delete (window as Window & { __stellarproof_logout?: () => void }).__stellarproof_logout;
+        delete (window as any).__stellarproof_logout;
       }
     };
   }, [handleLogout]);

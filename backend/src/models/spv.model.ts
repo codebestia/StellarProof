@@ -8,7 +8,7 @@
  *   its presence when `accessType === 'nft_holders_only'`.
  * - Timestamps are enabled via Mongoose options (adds `createdAt` / `updatedAt`).
  */
-import { Schema, model, Document } from "mongoose";
+import mongoose, { Schema, model, Document } from "mongoose";
 import type { ISPVRecord, AccessType } from "../types/spv.types";
 
 const ACCESS_TYPES: AccessType[] = ["public", "private", "nft_holders_only"];
@@ -63,37 +63,6 @@ const SPVSchema = new Schema<SPVDocument>(
   }
 );
 
-export const SPVModel = model<SPVDocument>("SPVRecord", SPVSchema);
 
-// New SPVRecord schema as requested for the /seal endpoint
-export interface ISealSPVRecord extends Document {
-  assetId: Schema.Types.ObjectId;
-  accessType: "private" | "nft_holders_only";
-  kmsKey: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
-const SealSPVRecordSchema = new Schema<ISealSPVRecord>(
-  {
-    assetId: {
-      type: Schema.Types.ObjectId,
-      ref: "Asset",
-      required: [true, "assetId is required"],
-    },
-    accessType: {
-      type: String,
-      enum: ["private", "nft_holders_only"],
-      required: [true, "accessType is required"],
-    },
-    kmsKey: {
-      type: String,
-      required: [true, "kmsKey is required"],
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
 
-export const SPVRecordModel = model<ISealSPVRecord>("SealSPVRecord", SealSPVRecordSchema);
