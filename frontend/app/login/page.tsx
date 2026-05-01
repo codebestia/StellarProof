@@ -15,13 +15,13 @@ export default function LoginPage() {
   const { reset } = useWizard();
   const { logout } = useAuth();
 
-  const handleLogout = () => {
+  const handleLogout = React.useCallback(() => {
     logout();
     disconnect();
     reset();
     addToast({ type: "success", message: "You have been logged out successfully" });
     router.push("/login");
-  };
+  }, [logout, disconnect, reset, addToast, router]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {

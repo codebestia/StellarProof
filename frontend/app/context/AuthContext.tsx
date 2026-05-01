@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 
 interface User {
   name?: string;
@@ -18,8 +18,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const storedAuth = localStorage.getItem("stellarproof_auth");
+      if (storedAuth) {
+        try {
+          const parsed = JSON.parse(storedAuth);
+          return !!parsed.isAuthenticated;
+        } catch (e) {
+          console.error("Failed to parse auth from localStorage", e);
+        }
+      }
+    }
+    return false;
+  });
 
   useEffect(() => {
     const storedAuth = localStorage.getItem("stellarproof_auth");
@@ -32,11 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(parsed.user);
           });
         }
-      } catch (e) {
-        console.error("Failed to parse auth from localStorage", e);
       }
     }
-  }, []);
+    return null;
+  });
 
   const login = async (email: string, password: string): Promise<void> => {
     return new Promise((resolve, reject) => {
