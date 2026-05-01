@@ -7,8 +7,6 @@ import {
   getSPVRecord,
   getUserSPVRecords,
   updateSealedStatus,
-  unsealAsset,
-  sealSPV
 } from '../controllers/spv.controller';
 
 const router = Router();
@@ -48,8 +46,8 @@ router.get('/records/user', protect, getUserSPVRecords);
 router.get('/:spvId', protect, getSPVRecord);
 
 /**
- * PATCH /api/v1/spv/records/:id/seal
- * Update the sealed status of an SPV record
+ * GET /api/v1/spv/:spvId
+ * Get SPV record by ID
  */
 router.patch('/records/:id/seal', protect, updateSealedStatus);
 

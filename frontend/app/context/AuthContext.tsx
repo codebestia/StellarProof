@@ -33,15 +33,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   });
 
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== "undefined") {
-      const storedAuth = localStorage.getItem("stellarproof_auth");
-      if (storedAuth) {
-        try {
-          const parsed = JSON.parse(storedAuth);
-          return parsed.user || null;
-        } catch (e) {
-          console.error("Failed to parse auth from localStorage", e);
+  useEffect(() => {
+    const storedAuth = localStorage.getItem("stellarproof_auth");
+    if (storedAuth) {
+      try {
+        const parsed = JSON.parse(storedAuth);
+        if (parsed.isAuthenticated && parsed.user) {
+          Promise.resolve().then(() => {
+            setIsAuthenticated(parsed.isAuthenticated);
+            setUser(parsed.user);
+          });
         }
       }
     }
