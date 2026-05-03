@@ -63,6 +63,7 @@ const SPVSchema = new Schema<SPVDocument>(
   }
 );
 
-
+export const SPVRecordModel = model<SPVDocument>("SPVRecord", SPVSchema);
+export const SPVModel = SPVRecordModel;
 
 

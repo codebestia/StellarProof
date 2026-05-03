@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { uploadFile } from '../controllers/storage.controller';
+import { uploadFile } from '../../controllers/storage.controller';
 
 /**
  * Storage Routes - v1

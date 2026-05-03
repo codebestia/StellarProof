@@ -113,7 +113,7 @@ export const sealSPV = async (req: Request, res: Response): Promise<void> => {
         id: spvRecord._id,
         assetId: spvRecord.assetId,
         accessType: spvRecord.accessType,
-        kmsKey: spvRecord.kmsKey,
+        kmsKey: spvRecord.kmsKeyId, // It maps to kmsKeyId on ISPVRecord or KMSKey ref
         createdAt: spvRecord.createdAt
       }
     });
@@ -200,51 +200,6 @@ export const getSPVRecord = async (req: Request, res: Response): Promise<void> =
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message });
-  }
-};
-
-export const getUserSPVRecords = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const records = await spvService.getUserSPVRecords(new mongoose.Types.ObjectId(req.user!.id));
-    res.status(StatusCodes.OK).json({ success: true, data: records });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message });
-  }
-};
-
-export const updateSealedStatus = async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
-  const { isSealed } = req.body;
-
-  if (typeof isSealed !== 'boolean') {
-    res.status(StatusCodes.BAD_REQUEST).json({
-      success: false,
-      message: 'isSealed must be a boolean value.',
-    });
-    return;
-  }
-
-  try {
-    const record = await spvService.updateSealedStatus(
-      id,
-      isSealed,
-      new mongoose.Types.ObjectId(req.user!.id),
-    );
-
-    if (!record) {
-      res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'SPV record not found or you do not have permission to modify it.',
-      });
-      return;
-    }
-
-    res.status(StatusCodes.OK).json({ success: true, data: record });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message });
-
   }
 };
 

@@ -31,19 +31,30 @@ class StorageOrchestratorService {
     try {
       switch (request.storageProvider) {
         case 'cloudinary':
-          uploadResult = await cloudinaryService.upload(
-            request.buffer,
-            request.mimetype,
-            request.originalname,
-          );
+          const cloudinaryUpload = await cloudinaryService.uploadBuffer(request.buffer);
+          uploadResult = {
+            provider: 'cloudinary',
+            url: cloudinaryUpload.secure_url,
+            publicId: cloudinaryUpload.public_id,
+            size: cloudinaryUpload.bytes,
+            mimetype: request.mimetype,
+            uploadedAt: new Date(cloudinaryUpload.created_at)
+          };
           break;
 
         case 'ipfs':
-          uploadResult = await ipfsService.upload(
-            request.buffer,
-            request.mimetype,
-            request.originalname,
-          );
+          const ipfsUpload = await ipfsService.upload({
+            content: request.buffer,
+            name: request.originalname
+          });
+          uploadResult = {
+            provider: 'ipfs',
+            url: ipfsUpload.gatewayUrl,
+            cid: ipfsUpload.cid,
+            size: ipfsUpload.size,
+            mimetype: request.mimetype,
+            uploadedAt: new Date(ipfsUpload.timestamp)
+          };
           break;
 
         default:

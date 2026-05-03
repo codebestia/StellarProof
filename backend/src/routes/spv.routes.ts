@@ -7,6 +7,7 @@ import {
   getSPVRecord,
   getUserSPVRecords,
   updateSealedStatus,
+  sealSPV
 } from '../controllers/spv.controller';
 
 const router = Router();
