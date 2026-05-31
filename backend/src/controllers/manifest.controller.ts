@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { StatusCodes } from 'http-status-codes';
+import { AppError } from '../errors/AppError';
 import { manifestService } from '../services/manifest.service';
 import type { ListManifestsQuery } from '../types/manifest.types';
 
@@ -29,6 +30,11 @@ class ManifestController {
   public async createManifest(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const manifestPayload = req.body;
+      const user = req.user;
+
+      if (!user) {
+        throw new AppError('Authentication required', StatusCodes.UNAUTHORIZED, 'AUTH_REQUIRED');
+      }
 
       if (!manifestPayload || typeof manifestPayload !== 'object') {
         res.status(StatusCodes.BAD_REQUEST).json({
@@ -38,7 +44,8 @@ class ManifestController {
         return;
       }
 
-      const savedManifest = await manifestService.createManifest(manifestPayload);
+      const validatedManifest = manifestService.prepareManifestPayload(manifestPayload, user);
+      const savedManifest = await manifestService.createManifest(validatedManifest);
 
       res.status(StatusCodes.CREATED).json({
         success: true,

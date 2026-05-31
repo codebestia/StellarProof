@@ -13,6 +13,7 @@ import { Router } from "express";
 import { z } from "zod";
 import type { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
+import { verifyJWT } from '../middlewares/jwt.middleware';
 import { manifestController } from "../controllers/manifest.controller";
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,25 @@ const listManifestsQuerySchema = z.object({
     ),
 });
 
+const createManifestBodySchema = z.object({
+  contentHash: z.string().min(1, "contentHash is required"),
+  creator: z
+    .string()
+    .regex(STELLAR_PUBLIC_KEY_REGEX, "Invalid Stellar public key (G...)")
+    .optional(),
+  timestamp: z
+    .preprocess((value) => {
+      if (typeof value === "string") {
+        return new Date(value);
+      }
+      return value;
+    }, z.date().refine((date) => !Number.isNaN(date.getTime()), {
+      message: "Invalid timestamp",
+    }))
+    .optional(),
+  metadata: z.record(z.unknown()).optional(),
+}).strict();
+
 // ---------------------------------------------------------------------------
 // Query validation middleware
 // ---------------------------------------------------------------------------
@@ -70,9 +90,26 @@ function validateListManifestsQuery(
     });
     return;
   }
-  // Overwrite req.query with the coerced + validated values so the controller
-  // receives already-parsed numbers rather than raw strings.
   req.query = result.data as unknown as typeof req.query;
+  next();
+}
+
+function validateCreateManifestBody(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  const result = createManifestBodySchema.safeParse(req.body);
+  if (!result.success) {
+    res.status(StatusCodes.BAD_REQUEST).json({
+      success: false,
+      error: "Invalid manifest payload",
+      details: result.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  req.body = result.data as unknown as typeof req.body;
   next();
 }
 
@@ -90,6 +127,17 @@ router.get(
   "/",
   validateListManifestsQuery,
   manifestController.listManifests.bind(manifestController)
+);
+
+/**
+ * POST /api/v1/manifests
+ * Authenticated endpoint for saving a generated manifest.
+ */
+router.post(
+  "/",
+  verifyJWT,
+  validateCreateManifestBody,
+  manifestController.createManifest.bind(manifestController)
 );
 
 export default router;
