@@ -2,14 +2,37 @@
  * Manifest Service – business logic for retrieving and creating manifests.
  */
 import { StatusCodes } from "http-status-codes";
+import { z } from "zod";
 import { SPVModel } from "../models/spv.model";
 import ManifestModel, { IManifest } from "../models/Manifest.model";
 import { AppError } from "../errors/AppError";
+import type { IUser } from "../models/User.model";
 import type {
   IManifestEntry,
   ListManifestsQuery,
   ManifestListResult,
 } from "../types/manifest.types";
+
+const STELLAR_PUBLIC_KEY_REGEX = /^G[A-Z2-7]{55}$/;
+
+const createManifestBodySchema = z.object({
+  contentHash: z.string().min(1, "contentHash is required"),
+  creator: z
+    .string()
+    .regex(STELLAR_PUBLIC_KEY_REGEX, "Invalid Stellar public key (G...)")
+    .optional(),
+  timestamp: z
+    .preprocess((value) => {
+      if (typeof value === "string") {
+        return new Date(value);
+      }
+      return value;
+    }, z.date().refine((date) => !Number.isNaN(date.getTime()), {
+      message: "Invalid timestamp",
+    }))
+    .optional(),
+  metadata: z.record(z.unknown()).optional(),
+}).strict();
 
 const EXCLUDED_FIELDS = { encryptedPayload: 0 } as const;
 
@@ -49,6 +72,45 @@ class ManifestService {
     ]);
 
     return { manifests, total, limit, skip };
+  }
+
+  public prepareManifestPayload(payload: unknown, user: IUser): Partial<IManifest> {
+    const result = createManifestBodySchema.safeParse(payload);
+    if (!result.success) {
+      throw new AppError(
+        "Invalid manifest payload",
+        StatusCodes.BAD_REQUEST,
+        "INVALID_MANIFEST_PAYLOAD"
+      );
+    }
+
+    const { contentHash, creator, timestamp, metadata } = result.data;
+    const userPublicKey = user.stellarPublicKey;
+
+    if (userPublicKey && creator && creator !== userPublicKey) {
+      throw new AppError(
+        "Creator public key does not match authenticated user",
+        StatusCodes.FORBIDDEN,
+        "CREATOR_MISMATCH"
+      );
+    }
+
+    const effectiveCreator = userPublicKey ?? creator;
+    if (!effectiveCreator) {
+      throw new AppError(
+        "Creator public key is required when the authenticated user has no connected wallet",
+        StatusCodes.BAD_REQUEST,
+        "CREATOR_REQUIRED"
+      );
+    }
+
+    return {
+      contentHash,
+      creator: effectiveCreator,
+      creatorId: user.id,
+      timestamp: timestamp ?? new Date(),
+      metadata,
+    };
   }
 
   /**
