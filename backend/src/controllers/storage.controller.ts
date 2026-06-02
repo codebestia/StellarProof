@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
+import { StatusCodes } from 'http-status-codes';
+import mongoose from 'mongoose';
+import { AppError } from '../errors/AppError';
+import Asset from '../models/Asset.model';
 import { storageOrchestratorService } from '../services/storage.service';
-import { StorageError } from '../types/storage.types';
+import { StorageError, type StorageProvider } from '../types/storage.types';
 
 /**
  * Storage Controller
@@ -62,6 +66,68 @@ export const uploadFile = async (req: Request, res: Response, next: NextFunction
     });
   } catch (error) {
     // Let error handler middleware process all errors
+    next(error);
+  }
+};
+
+function getAuthenticatedUserId(req: Request): string | undefined {
+  const user = req.user as any;
+  return user?.id || user?._id?.toString() || req.body.userId;
+}
+
+export const uploadMedia = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.file) {
+      throw new AppError(
+        "No file provided. Send multipart/form-data with a 'file' field.",
+        StatusCodes.BAD_REQUEST,
+        'NO_FILE_PROVIDED'
+      );
+    }
+
+    const storageProvider = req.body.storageProvider || 'ipfs';
+    const userId = getAuthenticatedUserId(req);
+
+    if (!userId) {
+      throw new AppError(
+        'User authentication required or userId must be provided in request body.',
+        StatusCodes.UNAUTHORIZED,
+        'AUTH_REQUIRED'
+      );
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new AppError('Invalid userId', StatusCodes.BAD_REQUEST, 'INVALID_USER_ID');
+    }
+
+    const uploadResult = await storageOrchestratorService.orchestrate({
+      storageProvider: storageProvider as StorageProvider,
+      buffer: req.file.buffer,
+      mimetype: req.file.mimetype,
+      originalname: req.file.originalname,
+      userId,
+    });
+
+    const asset = await Asset.create({
+      creatorId: new mongoose.Types.ObjectId(userId),
+      fileName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      sizeBytes: uploadResult.size,
+      storageProvider: uploadResult.provider,
+      storageReferenceId: uploadResult.cid || uploadResult.url,
+      isEncrypted: false,
+    });
+
+    res.status(StatusCodes.CREATED).json({
+      success: true,
+      message: 'Media uploaded successfully',
+      data: {
+        assetId: asset._id,
+        url: uploadResult.url,
+        cid: uploadResult.cid,
+      },
+    });
+  } catch (error) {
     next(error);
   }
 };

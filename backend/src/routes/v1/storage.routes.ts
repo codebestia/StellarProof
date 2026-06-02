@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { uploadFile } from '../../controllers/storage.controller';
+import { uploadFile, uploadMedia } from '../../controllers/storage.controller';
 
 /**
  * Storage Routes - v1
@@ -39,5 +39,6 @@ const upload = multer({
  *   - 502: Provider error (upstream failure)
  */
 router.post('/upload', upload.single('file'), uploadFile);
+router.post('/media', upload.single('file'), uploadMedia);
 
 export default router;
