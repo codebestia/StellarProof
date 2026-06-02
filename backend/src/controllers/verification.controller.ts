@@ -12,13 +12,92 @@
  */
 import type { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
+import mongoose from "mongoose";
+import { AppError } from "../errors/AppError";
+import Asset from "../models/Asset.model";
+import Manifest from "../models/Manifest.model";
+import { VerificationJobModel } from "../models/verificationJob.model";
 import { verificationService } from "../services/verification.service";
 import type {
   CreateVerificationJobDTO,
   UpdateVerificationStatusDTO,
 } from "../types/verification.types";
+import { VerificationStatus } from "../types/verification.types";
 
 export class VerificationController {
+  /**
+   * POST /api/v1/verify/submit
+   * Validates ownership and creates a pending Truth Engine verification job.
+   */
+  async submit(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { manifestId, assetId } = req.body as {
+        manifestId?: string;
+        assetId?: string;
+      };
+      const user = req.user as any;
+      const userId = user?.id || user?._id?.toString();
+
+      if (!userId) {
+        throw new AppError("Authentication required", StatusCodes.UNAUTHORIZED, "AUTH_REQUIRED");
+      }
+
+      if (!manifestId || !mongoose.Types.ObjectId.isValid(manifestId)) {
+        throw new AppError("Valid manifestId is required", StatusCodes.BAD_REQUEST, "INVALID_MANIFEST_ID");
+      }
+
+      if (!assetId || !mongoose.Types.ObjectId.isValid(assetId)) {
+        throw new AppError("Valid assetId is required", StatusCodes.BAD_REQUEST, "INVALID_ASSET_ID");
+      }
+
+      const [manifest, asset] = await Promise.all([
+        Manifest.findById(manifestId),
+        Asset.findById(assetId),
+      ]);
+
+      if (!manifest) {
+        throw new AppError("Manifest not found", StatusCodes.NOT_FOUND, "MANIFEST_NOT_FOUND");
+      }
+
+      if (!asset) {
+        throw new AppError("Asset not found", StatusCodes.NOT_FOUND, "ASSET_NOT_FOUND");
+      }
+
+      if (manifest.creatorId.toString() !== userId || asset.creatorId.toString() !== userId) {
+        throw new AppError(
+          "Authenticated user does not own both the manifest and asset",
+          StatusCodes.FORBIDDEN,
+          "OWNERSHIP_MISMATCH"
+        );
+      }
+
+      const job = await VerificationJobModel.create({
+        manifestId: new mongoose.Types.ObjectId(manifestId),
+        assetId: new mongoose.Types.ObjectId(assetId),
+        ownerPublicKey: user.stellarPublicKey || manifest.creator,
+        contentHash: manifest.contentHash,
+        status: VerificationStatus.PENDING,
+      });
+
+      res.status(StatusCodes.CREATED).json({
+        success: true,
+        message: "Verification job submitted successfully",
+        data: {
+          jobId: job._id,
+          status: job.status,
+          manifestId: job.manifestId,
+          assetId: job.assetId,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   /**
    * POST /api/v1/verification/jobs
    * Creates a new VerificationJob in the `pending` state.
