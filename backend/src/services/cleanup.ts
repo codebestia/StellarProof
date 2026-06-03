@@ -33,7 +33,13 @@ export class CleanupService {
    */
   private async getLinkedAssetIds(): Promise<mongoose.Types.ObjectId[]> {
     const jobs = await VerificationJobModel.distinct('assetId').exec();
-    return jobs as mongoose.Types.ObjectId[];
+    return jobs
+      .filter((id): id is string | mongoose.Types.ObjectId => Boolean(id))
+      .map((id) =>
+        id instanceof mongoose.Types.ObjectId
+          ? id
+          : new mongoose.Types.ObjectId(id),
+      );
   }
 
 
